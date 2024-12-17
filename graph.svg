@@ -1,0 +1,47 @@
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+    <!-- Define the gradient -->
+    <defs>
+        <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#4facfe" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#00f2fe" stop-opacity="0.2"/>
+        </linearGradient>
+        
+        <!-- Define grid pattern -->
+        <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M 80 0 L 0 0 0 80" 
+                  fill="none" 
+                  stroke="#e6e6e6" 
+                  stroke-width="1"/>
+        </pattern>
+    </defs>
+
+    <!-- Background -->
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    
+    <!-- Grid -->
+    <rect width="100%" height="100%" fill="url(#grid)"/>
+
+    <!-- Gradient filled area -->
+    <path d="M0,300 
+             C200,280 
+               300,100 
+               400,150 
+               S600,250 
+                 800,200
+             L800,400 
+             L0,400 
+             Z" 
+          fill="url(#areaGradient)"/>
+    
+    <!-- Curve line only -->
+    <path d="M0,300 
+             C200,280 
+               300,100 
+               400,150 
+               S600,250 
+                 800,200"
+          fill="none"
+          stroke="red"
+          stroke-width="2"/>
+</svg>
+

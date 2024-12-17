@@ -1,5 +1,7 @@
 import { SystemBars } from "react-native-edge-to-edge";
 import { StyleSheet, Text, View, Button, useColorScheme } from "react-native";
+import { Graph } from "./Graph";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
   const handlePress = () => {
@@ -10,11 +12,11 @@ export default function App() {
 const backgroundColor = colorScheme === "dark" ? "#000" : "#fff";
 
 	return (
-		<View style={[styles.container, {backgroundColor}]  }>
-			<Text>Open up App.tsx to start working on your app!</Text>
-			<SystemBars style="auto" />
-			<Button title="Press me" onPress={handlePress} />
-		</View>
+		<GestureHandlerRootView>
+			<View style={[styles.container, {backgroundColor}]  }>
+				<Graph />
+			</View>
+		</GestureHandlerRootView>
 	);
 }
 

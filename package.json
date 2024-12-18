@@ -10,6 +10,7 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
+		"@shopify/react-native-skia": "^1.7.5",
 		"expo": "~52.0.18",
 		"react": "18.3.1",
 		"react-native": "0.76.5",

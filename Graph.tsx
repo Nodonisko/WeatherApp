@@ -1,101 +1,141 @@
-import React from "react";
-import Svg, {
-	Defs,
-	LinearGradient,
-	Stop,
-	Pattern,
-	Path,
-	Rect,
-} from "react-native-svg";
+import React, { useMemo } from "react";
+
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	useSharedValue,
 	withTiming,
 	useAnimatedStyle,
+	useAnimatedProps,
+	useDerivedValue,
 } from "react-native-reanimated";
+import {
+	Skia,
+	Canvas,
+	Path,
+	LinearGradient,
+	Rect,
+	Line,
+	vec,
+	DashPathEffect,
+	Group,
+} from "@shopify/react-native-skia";
+import { GraphPoint, createGraphPathBase } from "./src/graph/crateGraphPath";
+import { fetchWeather } from "./src/weatherApi/weatherApi";
+import lysa from "./lysa.json";
+// const graphPoints: GraphPoint[] = new Array(100).fill(0).map((_, index) => {
+// 	const v = Math.random() * 100;
+// 	const value = v > 50 ? v : v * -1;
+// 	return {
+// 		value,
+// 		date: new Date(Date.now() - index * 1000 * 60 * 60 * 24),
+// 	};
+// });
+
+// olomouc coordinates
+//fetchWeather(49.5966, 17.25)
+// fetchWeather(49.5459889, 18.4474875)
+// 	.then((data) => {
+// 		console.log(JSON.stringify(data, null, 2));
+// 		console.log(data);
+// 	})
+// 	.catch((error) => {
+// 		console.error(error);
+// 	});
+
+const graphPoints: GraphPoint[] = lysa.hourly.map((hour) => ({
+	value: hour.temp,
+	date: new Date(hour.dt * 1000),
+}));
+
+console.log(graphPoints);
 
 interface GraphProps {
 	width?: number;
 	height?: number;
 }
-
 export const Graph: React.FC<GraphProps> = ({ width = 800, height = 400 }) => {
-	const currentTranslationX = useSharedValue(0);
+	console.log("Graph dimensions:", { width, height });
+
+	const perf = performance.now();
+	const graphPath = useMemo(() => {
+		return createGraphPathBase({
+			pointsInRange: graphPoints,
+			range: {
+				x: {
+					min: graphPoints[0].date,
+					max: graphPoints[graphPoints.length - 1].date,
+				},
+				y: { min: 0, max: 100 },
+			},
+			horizontalPadding: 0,
+			verticalPadding: 0,
+			canvasHeight: height,
+			canvasWidth: width,
+			shouldFillGradient: true,
+		});
+	}, [width, height]);
+	console.log("Graph path created in", performance.now() - perf, "ms");
+
+	const currentLineX = useSharedValue(-1000);
 	const isPanLineVisible = useSharedValue(true);
 
 	const panGesture = Gesture.Pan()
 		.onStart((e) => {
-			isPanLineVisible.value = true;
-			currentTranslationX.value = e.translationX;
+			currentLineX.value = e.x;
 		})
 		.onUpdate((e) => {
-			currentTranslationX.value = e.translationX;
-		})
-		.onEnd((e) => {
-			isPanLineVisible.value = false;
+			currentLineX.value = e.x;
 		});
+
+	const p2 = useDerivedValue(() => {
+		return vec(currentLineX.value, height);
+	});
+
+	const p1 = useDerivedValue(() => {
+		return vec(currentLineX.value, 0);
+	});
+
+	const path = useMemo(() => {
+		return Skia.Path.MakeFromSVGString(`
+            M0,${height * 0.75} 
+           C${width * 0.25},${height * 0.7} 
+              ${width * 0.375},${height * 0.25} 
+              ${width * 0.5},${height * 0.375} 
+             S${width * 0.75},${height * 0.625} 
+                ${width},${height * 0.5}
+                `)!;
+	}, [width, height]);
 
 	return (
 		<GestureDetector gesture={panGesture}>
-			<Svg width={width} height={height}>
-				{/* Define the gradient and patterns */}
-				<Defs>
-				<LinearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-					<Stop offset="0%" stopColor="#4facfe" stopOpacity="0.8" />
-					<Stop offset="100%" stopColor="#00f2fe" stopOpacity="0.2" />
-				</LinearGradient>
+			<Canvas style={{ width: width, height: height }}>
+				<Path
+					path={graphPath.gradientPath}
+					strokeWidth={2}
+					style="fill"
+					strokeJoin="round"
+					strokeCap="round"
+				></Path>
 
-				<Pattern id="grid" width={80} height={80} patternUnits="userSpaceOnUse">
-					<Path
-						d="M 80 0 L 0 0 0 80"
-						fill="none"
-						stroke="#e6e6e6"
-						strokeWidth="1"
-					/>
-				</Pattern>
-			</Defs>
+				{/* {graphPath.gradientPath && (
+					<Path path={graphPath.gradientPath} style="fill">
+						<LinearGradient
+							start={vec(0, 0)}
+							end={vec(0, height)}
+							colors={["red", "white"]}
+							//positions={positions}
+						/>
+					</Path>
+				)} */}
 
-			{/* Background */}
-			<Rect width="100%" height="100%" fill="#ffffff" />
+				{/* Curve line only */}
+				{/* <Path path={path} style="stroke" color="red" strokeWidth={2} /> */}
 
-			{/* Grid */}
-			<Rect width="100%" height="100%" fill="url(#grid)" />
-
-			{/* Gradient filled area */}
-			<Path
-				d="M0,300 
-           C200,280 
-             300,100 
-             400,150 
-             S600,250 
-               800,200
-           L800,400 
-           L0,400 
-           Z"
-				fill="url(#areaGradient)"
-			/>
-
-			{/* Curve line only */}
-			<Path
-				d="M0,300 
-           C200,280 
-             300,100 
-             400,150 
-             S600,250 
-               800,200"
-				fill="none"
-				stroke="red"
-				strokeWidth="2"
-			/>
-
-			{/* Add dashed line in the middle */}
-			<Path
-				d={`M${width / 2},0 L${width / 2},${height}`}
-				stroke="#666666"
-				strokeWidth="1"
-					strokeDasharray="5,5"
-				/>
-			</Svg>
+				{/* Pan gesture line */}
+				<Line p1={p1} p2={p2} color="#666666" strokeWidth={1} strokeMiter={5}>
+					<DashPathEffect intervals={[4, 4]} />
+				</Line>
+			</Canvas>
 		</GestureDetector>
 	);
 };

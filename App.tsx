@@ -9,9 +9,13 @@ import {
 } from "react-native";
 import { Graph } from "./Graph";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-
+// import { run as benchmarkClosestColumn } from "./benchmarks/benchmarkClosestColumn";
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
+
+// setTimeout(() => {
+// 	benchmarkClosestColumn();
+// }, 5000);
 
 export default function App() {
 	const handlePress = () => {

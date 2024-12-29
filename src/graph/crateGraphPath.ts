@@ -1,6 +1,5 @@
-import { SkPath, Skia, SkPoint } from "@shopify/react-native-skia";
-
-const PIXEL_RATIO = 2;
+import { SkPath, Skia, SkPoint, PathCommand } from "@shopify/react-native-skia";
+import { PixelRatio } from "react-native";
 
 export interface GraphPoint {
 	value: number;
@@ -92,8 +91,51 @@ export const getYInRange = (
 	return (height / 2) * getYPositionInRange(value, yRange);
 };
 
-type GraphPath = { path: SkPath; gradientPath: null };
-type GraphPathWithGradient = { path: SkPath; gradientPath: SkPath };
+type GraphPath = {
+	path: SkPath;
+	gradientPath: null;
+	points: PointWithValue[];
+};
+type GraphPathWithGradient = {
+	path: SkPath;
+	gradientPath: SkPath;
+	points: PointWithValue[];
+};
+
+type PointWithValue = SkPoint & { value: number };
+
+function getCatmullRomPoint(
+	p0: PointWithValue,
+	p1: PointWithValue,
+	p2: PointWithValue,
+	p3: PointWithValue,
+	t: number,
+) {
+	const tension = 1; // 1 = very smooth,  = linear
+
+	const t2 = t * t;
+	const t3 = t2 * t;
+
+	// Catmull-Rom matrix calculations with proper tension application
+	const x =
+		p1.x +
+		0.5 *
+			((p2.x - p0.x) * tension * t +
+				(2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * tension * t2 +
+				(3 * p1.x - 3 * p2.x + p3.x - p0.x) * tension * t3);
+
+	const y =
+		p1.y +
+		0.5 *
+			((p2.y - p0.y) * tension * t +
+				(2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * tension * t2 +
+				(3 * p1.y - 3 * p2.y + p3.y - p0.y) * tension * t3);
+
+	return { x, y };
+}
+
+console.log(PixelRatio.getPixelSizeForLayoutSize(2));
+const GRADIENT_OVERLAP = 3 * PixelRatio.get();
 
 export function createGraphPathBase(
 	props: GraphPathConfigWithGradient,
@@ -117,9 +159,9 @@ export function createGraphPathBase({
 	// Canvas height substracted by the vertical padding => Actual drawing height
 	const drawingHeight = height - 2 * verticalPadding;
 
-	if (graphData[0] == null) return { path, gradientPath: null };
+	if (graphData[0] == null) return { path, gradientPath: null, points: [] };
 
-	const points: SkPoint[] = [];
+	const points: (SkPoint & { value: number })[] = [];
 
 	const startX =
 		getXInRange(drawingWidth, graphData[0]!.date, range.x) + horizontalPadding;
@@ -127,86 +169,165 @@ export function createGraphPathBase({
 		getXInRange(drawingWidth, graphData[graphData.length - 1]!.date, range.x) +
 		horizontalPadding;
 
-	const getGraphDataIndex = (pixel: number) =>
-		Math.round(((pixel - startX) / (endX - startX)) * (graphData.length - 1));
-
-	const getNextPixelValue = (pixel: number) => {
-		if (pixel === endX || pixel + PIXEL_RATIO < endX)
-			return pixel + PIXEL_RATIO;
-
-		return endX;
-	};
-
-	for (
-		let pixel = startX;
-		startX <= pixel && pixel <= endX;
-		pixel = getNextPixelValue(pixel)
-	) {
-		const index = getGraphDataIndex(pixel);
-
-		// Draw first point only on the very first pixel
-		if (index === 0 && pixel !== startX) continue;
-		// Draw last point only on the very last pixel
-
-		if (index === graphData.length - 1 && pixel !== endX) continue;
-
-		if (index !== 0 && index !== graphData.length - 1) {
-			// Only draw point, when the point is exact
-			const exactPointX =
-				getXInRange(drawingWidth, graphData[index]!.date, range.x) +
-				horizontalPadding;
-
-			const isExactPointInsidePixelRatio = Array(PIXEL_RATIO)
-				.fill(0)
-				.some(
-					(_value, additionalPixel) => pixel + additionalPixel === exactPointX,
-				);
-
-			if (!isExactPointInsidePixelRatio) continue;
-		}
-
+	for (let index = 0; index < graphData.length; index++) {
 		const { value } = graphData[index]!;
 		// Simply multiply by height and add padding
-		const y = getYInRange(drawingHeight, value, range.y) + verticalPadding;
-		points.push({ x: pixel, y });
+		const y = getYInRange(drawingHeight, value * 10, range.y) + verticalPadding;
+
+		const x =
+			getXInRange(drawingWidth, graphData[index]!.date, range.x) +
+			horizontalPadding;
+
+		points.push({ x, y, value });
 	}
 
 	for (let i = 0; i < points.length; i++) {
-		const point = points[i]!;
+		const p0 = points[Math.max(i - 1, 0)];
+		const p1 = points[i];
+		const p2 = points[i + 1];
+		const p3 = points[Math.min(i + 2, points.length - 1)];
 
-		// first point needs to start the path
-		if (i === 0) path.moveTo(point.x, point.y);
+		if (p0 == null || p1 == null || p2 == null || p3 == null) continue;
 
-		const prev = points[i - 1];
-		const prevPrev = points[i - 2];
+		if (i === 0) path.moveTo(p1.x, p1.y);
 
-		if (prev == null) continue;
-
-		const p0 = prevPrev ?? prev;
-		const p1 = prev;
-		const cp1x = (2 * p0.x + p1.x) / 3;
-		const cp1y = (2 * p0.y + p1.y) / 3;
-		const cp2x = (p0.x + 2 * p1.x) / 3;
-		const cp2y = (p0.y + 2 * p1.y) / 3;
-		const cp3x = (p0.x + 4 * p1.x + point.x) / 6;
-		const cp3y = (p0.y + 4 * p1.y + point.y) / 6;
-
-		path.cubicTo(cp1x, cp1y, cp2x, cp2y, cp3x, cp3y);
-
-		if (i === points.length - 1) {
-			path.cubicTo(point.x, point.y, point.x, point.y, point.x, point.y);
+		// Add intermediate points for smoother curve
+		const steps = 5;
+		for (let step = 1; step <= steps; step++) {
+			const t = step / steps;
+			const point = getCatmullRomPoint(p0, p1, p2, p3, t);
+			path.lineTo(point.x, point.y);
 		}
 	}
 
-	if (!shouldFillGradient) return { path, gradientPath: null };
-
-	const gradientPath = path.copy();
-
-	// Calculate zero line position
+	const pathCmds = path.toCmds();
+	const negativeThreshold = height / 2;
 	const zeroY = getYInRange(drawingHeight, 0, range.y) + verticalPadding;
 
-	gradientPath.lineTo(endX, zeroY);
-	gradientPath.lineTo(horizontalPadding, zeroY);
+	let pathNegativeCmds: PathCommand[] = [];
+	let pathPositiveCmds: PathCommand[] = [];
+	let pathNegativeGradientCmds: PathCommand[] = [];
+	let pathPositiveGradientCmds: PathCommand[] = [];
 
-	return { path, gradientPath };
+	let segmentStart: { x: number; isNegative: boolean } | null = null;
+
+	for (let i = 0; i < pathCmds.length; i++) {
+		const cmd = pathCmds[i];
+		if (!cmd) continue;
+
+		const [cmdType, x, y, ...rest] = cmd;
+		if (y == null || x == null) continue;
+		const isNegative = y > negativeThreshold;
+
+		// Start new segment if needed
+		if (!segmentStart) {
+			segmentStart = { x, isNegative };
+			if (isNegative) {
+				pathNegativeGradientCmds.push([0, x, y]); // moveTo start of segment
+			} else {
+				pathPositiveGradientCmds.push([0, x, y]); // moveTo start of segment
+			}
+		}
+
+		// When crossing the threshold, add an intersection point
+		if (i > 0) {
+			const prevCmd = pathCmds[i - 1]!;
+			const prevY = prevCmd[2];
+			if (prevY == null) continue;
+			const prevIsNegative = prevY > negativeThreshold;
+
+			if (isNegative !== prevIsNegative) {
+				// Calculate intersection point with threshold line
+				const prevX = prevCmd[1];
+				if (prevX == null) continue;
+				const t = (negativeThreshold - prevY) / (y - prevY);
+				const intersectX = prevX + t * (x - prevX);
+
+				// Close the current segment
+				if (segmentStart) {
+					if (segmentStart.isNegative) {
+						pathNegativeGradientCmds.push([1, intersectX, y]);
+						pathNegativeGradientCmds.push([1, intersectX, height]);
+						pathNegativeGradientCmds.push([1, segmentStart.x, height]);
+						pathNegativeGradientCmds.push([1, segmentStart.x, y]);
+					} else {
+						pathPositiveGradientCmds.push([1, intersectX, y]);
+						pathPositiveGradientCmds.push([1, intersectX, height]);
+						pathPositiveGradientCmds.push([1, segmentStart.x, height]);
+						pathPositiveGradientCmds.push([1, segmentStart.x, y]);
+					}
+				}
+
+				// Start new segment
+				segmentStart = { x: intersectX, isNegative };
+
+				// Start new path segment with moveTo
+				if (isNegative) {
+					pathNegativeGradientCmds.push([0, intersectX, negativeThreshold]); // moveTo
+				} else {
+					pathPositiveGradientCmds.push([0, intersectX, negativeThreshold]); // moveTo
+				}
+
+				// Add intersection point to both paths
+				pathNegativeCmds.push([1, intersectX, negativeThreshold, ...rest]);
+				pathPositiveCmds.push([1, intersectX, negativeThreshold, ...rest]);
+			}
+		}
+
+		// Add point to appropriate path
+		if (isNegative) {
+			pathPositiveCmds.push([0, x, y, ...rest]);
+			pathNegativeCmds.push(cmd);
+			pathNegativeGradientCmds.push([1, x, y]); // lineTo for gradient
+		} else {
+			pathPositiveCmds.push(cmd);
+			pathNegativeCmds.push([0, x, y, ...rest]);
+			pathPositiveGradientCmds.push([1, x, y]); // lineTo for gradient
+		}
+	}
+
+	// Close the final segment
+	if (segmentStart) {
+		const lastX = pathCmds[pathCmds.length - 1]?.[1];
+		const lastY = pathCmds[pathCmds.length - 1]?.[2];
+		if (lastX != null && lastY != null) {
+			if (segmentStart.isNegative) {
+				pathNegativeGradientCmds.push([1, lastX, lastY]);
+				pathNegativeGradientCmds.push([1, lastX, height]);
+				pathNegativeGradientCmds.push([1, segmentStart.x, height]);
+				pathNegativeGradientCmds.push([1, segmentStart.x, lastY]);
+			} else {
+				pathPositiveGradientCmds.push([1, lastX, lastY]);
+				pathPositiveGradientCmds.push([1, lastX, height]);
+				pathPositiveGradientCmds.push([1, segmentStart.x, height]);
+				pathPositiveGradientCmds.push([1, segmentStart.x, lastY]);
+			}
+		}
+	}
+
+	const pathNegative = Skia.Path.MakeFromCmds(pathNegativeCmds);
+	const pathPositive = Skia.Path.MakeFromCmds(pathPositiveCmds);
+	const pathNegativeGradient = Skia.Path.MakeFromCmds(pathNegativeGradientCmds);
+	const pathPositiveGradient = Skia.Path.MakeFromCmds(pathPositiveGradientCmds);
+
+	if (!shouldFillGradient)
+		return {
+			path,
+			pathNegative,
+			pathNegativeGradient,
+			pathPositive,
+			pathPositiveGradient,
+			gradientPath: null,
+			points,
+		};
+
+	return {
+		path,
+		pathNegative,
+		pathNegativeGradient,
+		pathPositive,
+		pathPositiveGradient,
+		gradientPath: null,
+		points,
+	};
 }

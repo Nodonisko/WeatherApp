@@ -7,36 +7,32 @@ import {
 	useColorScheme,
 	Dimensions,
 } from "react-native";
-import { Graph } from "./Graph";
+import { Graph } from "./src/graph/Graph";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useState } from "react";
 // import { run as benchmarkClosestColumn } from "./benchmarks/benchmarkClosestColumn";
+// import { run as benchmarkRound } from "./benchmarks/benchmarkRound";
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
 // setTimeout(() => {
-// 	benchmarkClosestColumn();
+// 	// benchmarkClosestColumn();
+// 	benchmarkRound();
 // }, 5000);
 
 export default function App() {
-	const handlePress = () => {
-		console.log("Button pressed!");
-		SystemBars.pushStackEntry({ style: "dark" });
-	};
-	const colorScheme = useColorScheme();
-	const backgroundColor = colorScheme === "dark" ? "#000" : "#fff";
-
+	const [render, setRender] = useState(0);
 	return (
-		<GestureHandlerRootView>
-			<View style={[styles.container, { backgroundColor }]}>
-				<View
-					style={{
-						width: screenWidth,
-						height: screenHeight * 0.5, // 50% of screen height
-						backgroundColor: "white",
-					}}
-				>
-					<Graph width={screenWidth} height={screenHeight * 0.5} />
-				</View>
+		<GestureHandlerRootView style={[styles.container]}>
+			<Button title="Render" onPress={() => setRender(render + 1)} />
+			<View
+				style={{
+					width: screenWidth,
+					height: screenHeight * 0.5, // 50% of screen height
+					backgroundColor: "white",
+				}}
+			>
+				<Graph width={screenWidth} height={screenHeight * 0.65} />
 			</View>
 		</GestureHandlerRootView>
 	);

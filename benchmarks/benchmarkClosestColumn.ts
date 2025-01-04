@@ -246,20 +246,20 @@ const graphPath = {
 	],
 };
 
-const bench = new Bench({ name: "simple benchmark", time: 100 });
+const bench = new Bench();
 
 const findClosestCollum = (x: number) => {
 	const points = graphPath.points;
 	const totalPoints = points.length;
 
 	// Handle edge cases
-	if (x <= points[0].x) return 0;
-	if (x >= points[totalPoints - 1].x) return totalPoints - 1;
+	if (x <= points[0]!.x) return 0;
+	if (x >= points[totalPoints - 1]!.x) return totalPoints - 1;
 
 	// Estimate index based on x position
-	const xRange = points[totalPoints - 1].x - points[0].x;
+	const xRange = points[totalPoints - 1]!.x - points[0]!.x;
 	const estimatedIndex = Math.floor(
-		((x - points[0].x) / xRange) * (totalPoints - 1),
+		((x - points[0]!.x) / xRange) * (totalPoints - 1),
 	);
 
 	// Define search window (you can adjust the window size if needed)
@@ -269,10 +269,10 @@ const findClosestCollum = (x: number) => {
 
 	// Find closest point within the window
 	let closestIndex = estimatedIndex;
-	let minDistance = Math.abs(points[estimatedIndex].x - x);
+	let minDistance = Math.abs(points[estimatedIndex]!.x - x);
 
 	for (let i = start; i <= end; i++) {
-		const distance = Math.abs(points[i].x - x);
+		const distance = Math.abs(points[i]!.x - x);
 		if (distance < minDistance) {
 			minDistance = distance;
 			closestIndex = i;
@@ -287,30 +287,30 @@ const findClosestCollumBinary1 = (x: number) => {
 	let right = graphPath.points.length - 1;
 
 	// Handle edge cases
-	if (x <= graphPath.points[left].x) return left;
-	if (x >= graphPath.points[right].x) return right;
+	if (x <= graphPath.points[left]!.x) return left;
+	if (x >= graphPath.points[right]!.x) return right;
 
 	// Binary search
 	while (left <= right) {
 		const mid = Math.floor((left + right) / 2);
 
 		// If we found exact match
-		if (graphPath.points[mid].x === x) {
+		if (graphPath.points[mid]!.x === x) {
 			return mid;
 		}
 
 		// If we're between two points, return the closer one
 		if (
 			mid > 0 &&
-			graphPath.points[mid - 1].x <= x &&
-			x <= graphPath.points[mid].x
+			graphPath.points[mid - 1]!.x <= x &&
+			x <= graphPath.points[mid]!.x
 		) {
-			return x - graphPath.points[mid - 1].x < graphPath.points[mid].x - x
+			return x - graphPath.points[mid - 1]!.x < graphPath.points[mid]!.x - x
 				? mid - 1
 				: mid;
 		}
 
-		if (graphPath.points[mid].x < x) {
+		if (graphPath.points[mid]!.x < x) {
 			left = mid + 1;
 		} else {
 			right = mid - 1;
@@ -326,8 +326,8 @@ const findClosestCollumBinary2 = (x: number) => {
 	let right = points.length - 1;
 
 	// Early exit for edge cases
-	if (x <= points[left].x) return left;
-	if (x >= points[right].x) return right;
+	if (x <= points[left]!.x) return left;
+	if (x >= points[right]!.x) return right;
 
 	// Binary search with interpolation hint
 	while (right - left > 1) {
@@ -336,7 +336,7 @@ const findClosestCollumBinary2 = (x: number) => {
 		// const mid = left + ((x - points[left].x) * (right - left)) / (points[right].x - points[left].x) | 0;
 		const mid = (left + right) >>> 1; // Faster integer division by 2
 
-		if (points[mid].x <= x) {
+		if (points[mid]!.x <= x) {
 			left = mid;
 		} else {
 			right = mid;
@@ -344,7 +344,7 @@ const findClosestCollumBinary2 = (x: number) => {
 	}
 
 	// Direct comparison of two remaining points
-	return x - points[left].x <= points[right].x - x ? left : right;
+	return x - points[left]!.x <= points[right]!.x - x ? left : right;
 };
 
 const findClosestCollumBinary3 = (x: number) => {
@@ -353,21 +353,21 @@ const findClosestCollumBinary3 = (x: number) => {
 	let right = points.length - 1;
 
 	// Early exit for edge cases
-	if (x <= points[0].x) return 0;
-	if (x >= points[right].x) return right;
+	if (x <= points[0]!.x) return 0;
+	if (x >= points[right]!.x) return right;
 
 	// Initial interpolation guess for potentially faster convergence
 	let mid =
 		(left +
-			((x - points[left].x) * (right - left)) /
-				(points[right].x - points[left].x)) |
+			((x - points[left]!.x) * (right - left)) /
+				(points[right]!.x - points[left]!.x)) |
 		0;
 
 	// Ensure mid stays within bounds
 	mid = mid < left ? left : mid > right ? right : mid;
 
 	// Adjust search space based on initial guess
-	if (points[mid].x <= x) {
+	if (points[mid]!.x <= x) {
 		left = mid;
 	} else {
 		right = mid;
@@ -376,11 +376,11 @@ const findClosestCollumBinary3 = (x: number) => {
 	// Fast binary search with minimal operations
 	while (right - left > 1) {
 		mid = (left + right) >>> 1;
-		points[mid].x <= x ? (left = mid) : (right = mid);
+		points[mid]!.x <= x ? (left = mid) : (right = mid);
 	}
 
 	// Final comparison using subtraction instead of abs()
-	return x - points[left].x <= points[right].x - x ? left : right;
+	return x - points[left]!.x <= points[right]!.x - x ? left : right;
 };
 
 bench
@@ -401,6 +401,6 @@ bench
 
 export const run = async () => {
 	await bench.run();
-	console.log(bench.name);
-	console.table(bench.table());
+	console.log("Find closest column");
+	console.log(bench.table());
 };

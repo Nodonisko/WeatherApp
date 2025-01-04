@@ -10,3 +10,6 @@ export const fetchWeather = async (lat: number, lon: number) => {
 	const data = await response.json();
 	return data;
 };
+
+// aladin
+// https://aladinonline.oblacno.cz/get_data.php?latitude=49.5955&longitude=17.2077

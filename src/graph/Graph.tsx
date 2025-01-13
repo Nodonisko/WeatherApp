@@ -30,13 +30,22 @@ import {
 	TwoPointConicalGradient,
 	Circle,
 	RoundedRect,
+	rotateY,
 } from "@shopify/react-native-skia";
-import { GraphPoint, createGraphPathBase, getYInRange } from "./crateGraphPath";
+import {
+	CLOUDS_HIGH_Y_START,
+	CLOUDS_LOW_Y_START,
+	CLOUDS_MID_Y_START,
+	GraphPoint,
+	createGraphPathBase,
+	getYInRange,
+} from "./crateGraphPath";
 import { fetchWeather } from "../weatherApi/weatherApi";
 import olomouc from "../../fixtures/olomouc.json";
 import { Platform, StyleSheet } from "react-native";
 import { HourlyLegend } from "./HourlyLegend";
 import { roundTo1Decimals } from "./mathHelpers";
+import { CloudLayer } from "./CloudLayer";
 // const graphPoints: GraphPoint[] = new Array(100).fill(0).map((_, index) => {
 // 	const v = Math.random() * 100;
 // 	const value = v > 50 ? v : v * -1;
@@ -59,7 +68,7 @@ import { roundTo1Decimals } from "./mathHelpers";
 
 // console.log(listFontFamilies());
 
-const colors = {
+export const colors = {
 	cold1: "rgba(37,175,255, 1)",
 	cold2: "rgba(37,159,255, 1)",
 	cold3: "rgba(37,143,255, 1)",
@@ -88,11 +97,20 @@ const colors = {
 	grid: "rgba(0,0,0,0.1)",
 
 	legendLine: "rgba(0,0,0,0.3)",
+	legendLineNow: "rgba(0,255,0,0.7)",
+
+	cloudsLow: "rgba(150,150,150, 0.85)",
+	cloudsMid: "rgba(100,100,100, 0.85)",
+	cloudsHigh: "rgba(50,50,50, 0.85)",
 };
 
 const pathStrokeWidth = 1;
 
 const LEGEND_HEIGHT = 36;
+const CLOUD_HEIGHT = 100;
+
+const PADDING_TOP = CLOUD_HEIGHT;
+const PADDING_BOTTOM = LEGEND_HEIGHT;
 
 const olomoucDate = new Date(olomouc.forecastTimeIso);
 const graphPoints: GraphPoint[] = olomouc.parameterValues.TEMPERATURE.map(
@@ -104,29 +122,34 @@ const graphPoints: GraphPoint[] = olomouc.parameterValues.TEMPERATURE.map(
 		percipitationSnow: roundTo1Decimals(
 			olomouc.parameterValues.PRECIPITATION_SNOW[index]!,
 		),
+		cloudsLow: olomouc.parameterValues.CLOUDS_LOW[index]!,
+		cloudsMid: olomouc.parameterValues.CLOUDS_MEDIUM[index]!,
+		cloudsHigh: olomouc.parameterValues.CLOUDS_HIGH[index]!,
+		windSpeed: olomouc.parameterValues.WIND_SPEED[index]!,
+		windDirection: olomouc.parameterValues.WIND_DIRECTION[index]!,
 		// every hour from olomoucDate
 		date: new Date(olomoucDate.getTime() + index * 1000 * 60 * 60),
 	}),
 );
 
-console.log(graphPoints);
-
 const getPrecipationScale = (maxPrecipitation: number) => {
-	// const safeMax = Math.max(maxPrecipitation, 0.1);
-	// const baseScale = 70; // maximum scale for minimal precipitation
-	// const decayFactor = 1; // controls how quickly the scale decreases
-	// return baseScale / Math.pow(safeMax, 1 / decayFactor);
+	if (maxPrecipitation <= 1) return 60;
 
-	if (maxPrecipitation <= 1) return 100;
-	if (maxPrecipitation <= 5) return 25;
-	if (maxPrecipitation <= 10) return 14;
-	if (maxPrecipitation <= 15) return 10;
-	if (maxPrecipitation <= 20) return 8;
-	if (maxPrecipitation <= 30) return 6;
-	if (maxPrecipitation <= 40) return 5;
-	if (maxPrecipitation <= 50) return 4;
+	const safeMax = Math.max(maxPrecipitation, 0.1);
+	const baseScale = 75; // maximum scale for minimal precipitation
+	const decayFactor = 1; // controls how quickly the scale decreases
+	return baseScale / Math.pow(safeMax, 1 / decayFactor);
 
-	return 3;
+	// if (maxPrecipitation <= 2) return 80;
+	// if (maxPrecipitation <= 5) return 25;
+	// if (maxPrecipitation <= 10) return 14;
+	// if (maxPrecipitation <= 15) return 10;
+	// if (maxPrecipitation <= 20) return 8;
+	// if (maxPrecipitation <= 30) return 6;
+	// if (maxPrecipitation <= 40) return 5;
+	// if (maxPrecipitation <= 50) return 4;
+
+	// return 3;
 };
 
 interface GraphProps {
@@ -134,9 +157,59 @@ interface GraphProps {
 	height?: number;
 }
 
+const fontFamily = Platform.select({
+	ios: "Helvetica Neue",
+	android: "sans-serif-medium",
+});
+
+const font = matchFont({
+	fontFamily,
+	fontSize: 12,
+});
+const fontCurrent = matchFont({
+	fontFamily,
+	fontSize: 18,
+});
+
+// Add this helper function to create an arrow path using the SVG
+const createArrowPath = (
+	x: number,
+	y: number,
+	direction: number,
+	size: number = 6,
+) => {
+	const path = Skia.Path.Make();
+
+	// Original SVG viewBox dimensions (approximated from path values)
+	const originalWidth = 10000;
+	const originalHeight = 6000;
+	const originalCenterX = originalWidth / 2;
+	const originalCenterY = originalHeight / 2;
+
+	// Scale factor to achieve desired size
+	const scale = size / originalWidth;
+
+	// Create the SVG path
+	path.moveTo(0, 0);
+	path.addPath(
+		Skia.Path.MakeFromSVGString(
+			"M9280 5934 c-106 -21 -223 -80 -293 -150 -99 -97 -148 -196 -168 -336 -10 -72 -9 -97 5 -164 22 -108 75 -212 144 -282 33 -33 391 -297 851 -627 l794 -570 -5084 -5 c-4763 -5 -5087 -6 -5132 -22 -146 -52 -265 -152 -330 -275 -114 -217 -77 -472 93 -644 70 -71 126 -108 217 -142 l58 -22 5078 -5 5078 -5 -752 -615 c-414 -338 -776 -638 -804 -667 -29 -29 -68 -84 -89 -125 -112 -224 -73 -470 105 -649 104 -105 233 -159 382 -159 99 0 186 22 270 68 70 39 2847 2303 2942 2399 160 162 199 422 93 633 -46 94 -119 163 -324 311 -1086 782 -2701 1940 -2747 1970 -83 54 -166 80 -272 84 -49 2 -101 1 -115 -1z",
+		)!,
+	);
+
+	// Transform the path: scale, center, rotate, and position
+	const matrix = Skia.Matrix();
+	matrix.translate(x, y); // Move to target position
+	matrix.rotate(direction - 180, 0, 0); // Rotate (subtract 180 because SVG points right)
+	matrix.scale(scale, scale); // Scale to desired size
+	matrix.translate(-originalCenterX, -originalCenterY); // Center the arrow
+
+	path.transform(matrix);
+	return path;
+};
+
 export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 	const graphHeight = height - LEGEND_HEIGHT;
-	const graphStartY = 0;
 	const graphEndY = graphHeight;
 	// console.log("Graph dimensions:", {
 	// 	width,
@@ -153,26 +226,30 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 				min: graphPoints[0]!.date,
 				max: graphPoints[graphPoints.length - 1]!.date,
 			},
-			y: { min: -15, max: 20 },
+			y: { min: -10, max: 15 },
 		};
 	}, [graphPoints]);
 
 	const graphPath = useMemo(() => {
-		return createGraphPathBase({
+		const perf = performance.now();
+		const result = createGraphPathBase({
 			pointsInRange: graphPoints,
 			range,
 			horizontalPadding: 0,
-			verticalPadding: 0,
-			canvasHeight: graphHeight,
+			paddingTop: PADDING_TOP,
+			paddingBottom: PADDING_BOTTOM,
+			canvasHeight: height,
 			canvasWidth: width,
-			shouldFillGradient: true,
 		});
+		console.log("createGraphPathBase", performance.now() - perf);
+		return result;
 	}, [width, graphHeight, range]);
 
-	console.log("maxPrecipitation", graphPath.maxPrecipitation);
-
 	const zeroLineY = useDerivedValue(() => {
-		return getYInRange(graphHeight, 0, range.y);
+		return (
+			getYInRange(height - PADDING_BOTTOM - PADDING_TOP, 0, range.y) +
+			PADDING_TOP
+		);
 	});
 
 	const currentFingerX = useSharedValue(-1000);
@@ -220,11 +297,13 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 			currentFingerX.value = e.x;
 		});
 
-	const onLongPress = Gesture.LongPress()
-		.minDuration(100)
-		.onStart((e) => {
-			currentFingerX.value = e.x;
-		});
+	const onLongPress = useMemo(() => {
+		return Gesture.LongPress()
+			.minDuration(100)
+			.onStart((e) => {
+				currentFingerX.value = e.x;
+			});
+	}, []);
 
 	const currentPoint = useDerivedValue(() => {
 		const collumIndex = findClosestCollum(currentFingerX.value);
@@ -234,7 +313,8 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 
 	const currentDate = useDerivedValue(() => {
 		const collumIndex = findClosestCollum(currentFingerX.value);
-		return new Date(graphPath.points[collumIndex]!.date).toISOString();
+		const date = new Date(graphPath.points[collumIndex]!.date);
+		return date.toDateString() + " " + date.toTimeString();
 	});
 
 	const currentLineX = useDerivedValue(() => {
@@ -250,20 +330,6 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 
 	const p1 = useDerivedValue(() => {
 		return vec(currentLineX.value, 0);
-	});
-
-	const fontFamily = Platform.select({
-		ios: "Helvetica Neue",
-		android: "sans-serif-medium",
-	});
-
-	const font = matchFont({
-		fontFamily,
-		fontSize: 12,
-	});
-	const fontCurrent = matchFont({
-		fontFamily,
-		fontSize: 18,
 	});
 
 	const warmRectPath = useDerivedValue(() => {
@@ -292,39 +358,57 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 		<GestureDetector gesture={gesture}>
 			<Canvas style={{ width: width, height: height }}>
 				<Fill color={colors.background}></Fill>
-				<Group clip={graphPath.gradientPath}>
-					<Rect
-						x={0}
-						y={0}
-						width={width}
-						height={graphPath.hasAnyNegativeValue ? zeroLineY : graphHeight}
-						color={colors.warmBackground}
-					></Rect>
-					{graphPath.hasAnyNegativeValue && (
-						<Rect x={0} y={zeroLineY} width={width} height={graphHeight}>
-							<LinearGradient
-								start={gradientColdStart}
-								end={gradientColdEnd}
-								colors={[
-									colors.cold1Background,
-									colors.cold2Background,
-									colors.cold3Background,
-									colors.cold4Background,
-									colors.cold5Background,
-								]}
-							/>
-						</Rect>
-					)}
-
-					<Fill>
-						<LinearGradient
-							start={gradientColdEnd}
-							end={vec(0, 0)}
-							colors={[colors.cold5BackgroundTransparent01, "#ffffff00"]}
-							positions={[0, 0.25]}
+				{graphPath.gradientPath && (
+					<Group clip={graphPath.gradientPath}>
+						<Rect
+							x={0}
+							y={0}
+							width={width}
+							height={graphPath.hasAnyNegativeValue ? zeroLineY : graphHeight}
+							color={colors.warmBackground}
 						/>
-					</Fill>
-				</Group>
+						{graphPath.hasAnyNegativeValue && (
+							<Rect x={0} y={zeroLineY} width={width} height={graphHeight}>
+								<LinearGradient
+									start={gradientColdStart}
+									end={gradientColdEnd}
+									colors={[
+										colors.cold1Background,
+										colors.cold2Background,
+										colors.cold3Background,
+										colors.cold4Background,
+										colors.cold5Background,
+									]}
+								/>
+							</Rect>
+						)}
+
+						<Fill>
+							<LinearGradient
+								start={gradientColdEnd}
+								end={vec(0, 0)}
+								colors={["rgba(255,255,255, 0.5)", "#ffffff00"]}
+								positions={[0, 0.2]}
+							/>
+						</Fill>
+					</Group>
+				)}
+
+				<CloudLayer
+					path={graphPath.cloudsHighPath}
+					color={colors.cloudsHigh}
+					yStart={CLOUDS_HIGH_Y_START}
+				/>
+				<CloudLayer
+					path={graphPath.cloudsMidPath}
+					color={colors.cloudsMid}
+					yStart={CLOUDS_MID_Y_START}
+				/>
+				<CloudLayer
+					path={graphPath.cloudsLowPath}
+					color={colors.cloudsLow}
+					yStart={CLOUDS_LOW_Y_START}
+				/>
 
 				<Group clip={warmRectPath}>
 					<Path
@@ -348,15 +432,6 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					/>
 				</Group>
 
-				{/* <Line
-					p1={zeroLineP1}
-					p2={zeroLineP2}
-					color="#666666"
-					strokeWidth={StyleSheet.hairlineWidth}
-				>
-					<DashPathEffect intervals={[4, 4]} />
-				</Line> */}
-
 				{graphPath.points
 					.filter(({ isTrendChanging }) => isTrendChanging)
 					.map((point) => (
@@ -366,7 +441,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 							y={point.y - 8}
 							color="black"
 							font={font}
-							text={point.value.toFixed(1).toString()}
+							text={point.value.toString()}
 						/>
 					))}
 
@@ -394,7 +469,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					font={fontCurrent}
 					text={currentDate}
 				/>
-				<Rect x={0} y={0} width={width} height={graphHeight}>
+				{/* <Rect x={0} y={0} width={width} height={graphHeight}>
 					<TwoPointConicalGradient
 						start={vec(128, 200)}
 						startR={60}
@@ -402,7 +477,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 						endR={60}
 						colors={["#ffffff00", "#ffff0085"]}
 					/>
-				</Rect>
+				</Rect> */}
 
 				{graphPath.points.map(
 					({ percipitation, percipitationSnow, ...point }) => {
@@ -412,22 +487,24 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 							const percipitationSnowHeight =
 								percipitationSnow *
 								getPrecipationScale(graphPath.maxPrecipitation);
+							const x = point.x + StyleSheet.hairlineWidth;
+							const width = collumWidth - StyleSheet.hairlineWidth * 2;
 							return (
 								<React.Fragment key={`${point.x}-${point.y}-${percipitation}`}>
 									<RoundedRect
-										x={point.x}
+										x={x}
 										y={graphHeight - percipitationHeight}
 										r={2}
-										width={collumWidth - 1}
+										width={width}
 										height={percipitationHeight}
 										color={colors.rainColumn}
 									/>
 									{percipitationSnow > 0 && (
 										<RoundedRect
-											x={point.x}
+											x={x}
 											y={graphHeight - percipitationSnowHeight}
 											r={2}
-											width={collumWidth - 1}
+											width={width}
 											height={percipitationSnowHeight}
 											color={colors.snowColumn}
 										/>
@@ -444,12 +521,23 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					width={width}
 					graphEndY={graphEndY}
 					height={height}
-					colors={colors}
 				/>
 
 				<Line p1={p1} p2={p2} color="#666666" strokeWidth={1} strokeMiter={5}>
 					<DashPathEffect intervals={[4, 4]} />
 				</Line>
+
+				<Group clip={graphPath.windSpeedClipPath} style="fill">
+					<Path
+						path={graphPath.windSpeedPath}
+						strokeWidth={5}
+						style="stroke"
+						strokeJoin="round"
+						strokeCap="round"
+						color="rgba(255,0,0,0.5)"
+					></Path>
+				</Group>
+				<Path path={graphPath.windSpeedClipPath} color="blue" style="fill" />
 			</Canvas>
 		</GestureDetector>
 	);

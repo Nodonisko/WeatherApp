@@ -24,16 +24,9 @@ export default function App() {
 	const [render, setRender] = useState(0);
 	return (
 		<GestureHandlerRootView style={[styles.container]}>
-			<Button title="Render" onPress={() => setRender(render + 1)} />
-			<View
-				style={{
-					width: screenWidth,
-					height: screenHeight * 0.5, // 50% of screen height
-					backgroundColor: "white",
-				}}
-			>
-				<Graph width={screenWidth} height={screenHeight * 0.65} />
-			</View>
+			{/* <Button title="Render" onPress={() => setRender(render + 1)} /> */}
+
+			<Graph width={screenWidth} height={screenHeight * 0.7} />
 		</GestureHandlerRootView>
 	);
 }
@@ -43,6 +36,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: "#fff",
 		alignItems: "center",
-		justifyContent: "center",
+		justifyContent: "flex-end",
 	},
 });

@@ -47,64 +47,9 @@ import { HourlyLegend } from "./HourlyLegend";
 import { roundTo1Decimals } from "./mathHelpers";
 import { CloudLayer } from "./CloudLayer";
 import { UnistylesRuntime } from "react-native-unistyles";
-
-// const graphPoints: GraphPoint[] = new Array(100).fill(0).map((_, index) => {
-// 	const v = Math.random() * 100;
-// 	const value = v > 50 ? v : v * -1;
-// 	return {
-// 		value,
-// 		date: new Date(Date.now() - index * 1000 * 60 * 60 * 24),
-// 	};
-// });
-
-// olomouc coordinates
-//fetchWeather(49.5966, 17.25)
-// fetchWeather(49.5459889, 18.4474875)
-// 	.then((data) => {
-// 		console.log(JSON.stringify(data, null, 2));
-// 		console.log(data);
-// 	})
-// 	.catch((error) => {
-// 		console.error(error);
-// 	});
-
-// console.log(listFontFamilies());
-
-export const colors = {
-	cold1: "rgba(37,175,255, 1)",
-	cold2: "rgba(37,159,255, 1)",
-	cold3: "rgba(37,143,255, 1)",
-	cold4: "rgba(37,127,255, 1)",
-	cold5: "rgba(37,111,255, 1)",
-
-	cold1Background: "rgba(37,175,255, 0.6)",
-	cold2Background: "rgba(37,159,255, 0.6)",
-	cold3Background: "rgba(37,143,255, 0.65)",
-	cold4Background: "rgba(37,127,255, 0.70)",
-	cold5Background: "rgba(37,111,255, 0.75)",
-
-	cold5BackgroundTransparent01: "rgba(37,111,255, 0.1)",
-	cold5BackgroundTransparent02: "rgba(37,111,255, 0.2)",
-	cold5BackgroundTransparent03: "rgba(37,111,255, 0.3)",
-	cold5BackgroundTransparent04: "rgba(37,111,255, 0.4)",
-	cold5BackgroundTransparent05: "rgba(37,111,255, 0.5)",
-
-	rainColumn: "rgba(37,175,255, 1)",
-	snowColumn: "rgba(255,255,255, 1)",
-
-	warm: "rgba(244,153,57, 1)",
-	warmBackground: "rgba(244,153,57, 0.75)",
-
-	background: "#ffffff",
-	grid: "rgba(0,0,0,0.1)",
-
-	legendLine: "rgba(0,0,0,0.3)",
-	legendLineNow: "rgba(0,255,0,0.7)",
-
-	cloudsLow: "rgba(150,150,150, 0.85)",
-	cloudsMid: "rgba(100,100,100, 0.85)",
-	cloudsHigh: "rgba(50,50,50, 0.85)",
-};
+import { colors } from "../colors";
+import { WindLine } from "./WindLine";
+import { RainColumns } from "./RainColumns";
 
 const pathStrokeWidth = 1;
 
@@ -115,8 +60,8 @@ const PADDING_TOP = CLOUD_HEIGHT + 80;
 const PADDING_BOTTOM = LEGEND_HEIGHT;
 
 const olomoucDate = new Date(olomouc.forecastTimeIso);
-const graphPoints: GraphPoint[] = olomouc.parameterValues.TEMPERATURE.map(
-	(temp, index) => ({
+export const graphPoints: GraphPoint[] =
+	olomouc.parameterValues.TEMPERATURE.map((temp, index) => ({
 		value: roundTo1Decimals(temp),
 		percipitation: roundTo1Decimals(
 			olomouc.parameterValues.PRECIPITATION_TOTAL[index]!,
@@ -131,45 +76,7 @@ const graphPoints: GraphPoint[] = olomouc.parameterValues.TEMPERATURE.map(
 		windDirection: olomouc.parameterValues.WIND_DIRECTION[index]!,
 		// every hour from olomoucDate
 		date: new Date(olomoucDate.getTime() + index * 1000 * 60 * 60),
-	}),
-);
-
-const WIND_ARROW_HEIGHT = 10;
-const WIND_ARROW_WIDTH = 7;
-
-const drawWindArrow = () => {
-	const path = Skia.Path.Make();
-
-	// Create the SVG path
-	path.moveTo(WIND_ARROW_WIDTH / 2, 0);
-	path.lineTo(0, WIND_ARROW_HEIGHT);
-	path.lineTo(WIND_ARROW_WIDTH / 2, WIND_ARROW_HEIGHT * 0.65);
-	path.lineTo(WIND_ARROW_WIDTH, WIND_ARROW_HEIGHT);
-	path.close();
-
-	return path;
-};
-const windArrowPath = drawWindArrow();
-
-const getPrecipationScale = (maxPrecipitation: number) => {
-	if (maxPrecipitation <= 1) return 60;
-
-	const safeMax = Math.max(maxPrecipitation, 0.1);
-	const baseScale = 75; // maximum scale for minimal precipitation
-	const decayFactor = 1; // controls how quickly the scale decreases
-	return baseScale / Math.pow(safeMax, 1 / decayFactor);
-
-	// if (maxPrecipitation <= 2) return 80;
-	// if (maxPrecipitation <= 5) return 25;
-	// if (maxPrecipitation <= 10) return 14;
-	// if (maxPrecipitation <= 15) return 10;
-	// if (maxPrecipitation <= 20) return 8;
-	// if (maxPrecipitation <= 30) return 6;
-	// if (maxPrecipitation <= 40) return 5;
-	// if (maxPrecipitation <= 50) return 4;
-
-	// return 3;
-};
+	}));
 
 interface GraphProps {
 	width?: number;
@@ -201,7 +108,6 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 	// 	graphEndY,
 	// });
 
-	const perf = performance.now();
 	const range = useMemo(() => {
 		return {
 			x: {
@@ -419,7 +325,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					.map((point) => (
 						<Text
 							key={`${point.x}-${point.y}`}
-							x={point.x - 13}
+							x={point.x - 8.5}
 							y={point.y - 8}
 							color="black"
 							font={font}
@@ -437,20 +343,20 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					/>
 				))}
 
-				{/* <Text
+				<Text
 					color="black"
 					x={50}
-					y={50}
+					y={120}
 					font={fontCurrent}
 					text={currentText}
 				/>
 				<Text
 					color="black"
 					x={width / 2 - 100}
-					y={70}
+					y={140}
 					font={fontCurrent}
 					text={currentDate}
-				/> */}
+				/>
 				{/* <Rect x={0} y={0} width={width} height={graphHeight}>
 					<TwoPointConicalGradient
 						start={vec(128, 200)}
@@ -461,42 +367,12 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					/>
 				</Rect> */}
 
-				{graphPath.points.map(
-					({ percipitation, percipitationSnow, ...point }) => {
-						if (percipitation > 0) {
-							const percipitationHeight =
-								percipitation * getPrecipationScale(graphPath.maxPrecipitation);
-							const percipitationSnowHeight =
-								percipitationSnow *
-								getPrecipationScale(graphPath.maxPrecipitation);
-							const x = point.x + StyleSheet.hairlineWidth;
-							const width = collumWidth - StyleSheet.hairlineWidth * 2;
-							return (
-								<React.Fragment key={`${point.x}-${point.y}-${percipitation}`}>
-									<RoundedRect
-										x={x}
-										y={graphHeight - percipitationHeight}
-										r={2}
-										width={width}
-										height={percipitationHeight}
-										color={colors.rainColumn}
-									/>
-									{percipitationSnow > 0 && (
-										<RoundedRect
-											x={x}
-											y={graphHeight - percipitationSnowHeight}
-											r={2}
-											width={width}
-											height={percipitationSnowHeight}
-											color={colors.snowColumn}
-										/>
-									)}
-								</React.Fragment>
-							);
-						}
-						return null;
-					},
-				)}
+				<RainColumns
+					points={graphPath.points}
+					maxPrecipitation={graphPath.maxPrecipitation}
+					graphHeight={graphHeight}
+					columnWidth={collumWidth}
+				/>
 
 				<HourlyLegend
 					points={graphPath.points}
@@ -509,34 +385,11 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					<DashPathEffect intervals={[4, 4]} />
 				</Line>
 
-				<Group>
-					<Path
-						path={graphPath.windSpeedPath}
-						strokeWidth={1}
-						style="stroke"
-						strokeJoin="round"
-						strokeCap="round"
-						color="rgba(100,100,100,0.3)"
-					/>
-					{graphPath.windArrows.map((arrow, index) => (
-						<Group
-							key={`wind-arrow-${index}`}
-							transform={[
-								{ translateX: arrow.point.x },
-								{ translateY: arrow.point.y },
-								{ rotate: arrow.direction },
-								{ translateX: -WIND_ARROW_WIDTH / 2 },
-								{ translateY: -WIND_ARROW_HEIGHT / 2 },
-							]}
-						>
-							<Path
-								path={windArrowPath}
-								color="rgba(255,50,50,1)"
-								style="fill"
-							/>
-						</Group>
-					))}
-				</Group>
+				<WindLine
+					windSpeedPath={graphPath.windSpeedPath}
+					windSpeedClipPath={graphPath.windSpeedClipPath}
+					windArrows={graphPath.windArrows}
+				/>
 			</Canvas>
 		</GestureDetector>
 	);

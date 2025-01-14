@@ -1,66 +1,32 @@
-import { Skia, SkPath } from "@shopify/react-native-skia";
-import { PointWithValue } from "./crateGraphPath";
+import { Skia } from "@shopify/react-native-skia";
 
-const WIND_SPEED_RANGE = {
-	min: 0,
-	max: 25,
+import { Vector } from "@shopify/react-native-skia";
+import { controlPoint } from "./graphMath";
+
+export const curvedWindLine = (points: Vector[], smoothing: number) => {
+	"worklet";
+	const path = Skia.Path.Make();
+	if (points.length === 0) return path;
+
+	path.moveTo(points[0]!.x, points[0]!.y);
+	// build the d attributes by looping over the points
+	for (let i = 0; i < points.length; i++) {
+		if (i === 0) {
+			continue;
+		}
+
+		const point = points[i]!;
+		const next = points[i + 1] || null;
+		if (i % 3 !== 0) {
+			path.moveTo(point.x, point.y);
+			continue;
+		}
+		const prev = points[i - 1] || null;
+		const prevPrev = points[i - 2] || null;
+		const cps = controlPoint(prev, prevPrev, point, false, smoothing);
+		const cpe = controlPoint(point, prev, next, true, smoothing);
+
+		path.cubicTo(cps.x, cps.y, cpe.x, cpe.y, point.x, point.y);
+	}
+	return path;
 };
-
-interface WindPathConfig {
-	points: PointWithValue[];
-	height: number;
-	width: number;
-	paddingTop: number;
-	paddingBottom: number;
-}
-
-interface ArrowPosition {
-	x: number;
-	y: number;
-	direction: number;
-}
-
-interface WindPath {
-	speedPath: SkPath;
-	arrowPositions: ArrowPosition[];
-}
-
-export function createWindPath({
-	points,
-	height,
-	width,
-	paddingTop,
-	paddingBottom,
-}: WindPathConfig): WindPath {
-	const drawingHeight = height - paddingTop - paddingBottom;
-	const speedPath = Skia.Path.Make();
-	const arrowPositions: ArrowPosition[] = [];
-
-	// Dash pattern values (should match the ones used in Graph.tsx)
-	const dashLength = 15;
-	const gapLength = 10;
-	const patternLength = dashLength + gapLength;
-
-	let currentPathLength = 0;
-	let lastX = 0;
-	let lastY = 0;
-
-	points.forEach((point, index) => {
-		const y = Math.min(
-			Math.max(
-				drawingHeight *
-					(1 -
-						Math.min(point.windSpeed, WIND_SPEED_RANGE.max) /
-							WIND_SPEED_RANGE.max) +
-					paddingTop,
-				paddingTop,
-			),
-			height - paddingBottom,
-		);
-	});
-
-	return {
-		speedPath,
-		arrowPositions,
-	};
-}

@@ -2,7 +2,7 @@ import React from "react";
 import { Platform, StyleSheet } from "react-native";
 import { Line, Text, vec, matchFont, Path } from "@shopify/react-native-skia";
 import { PointWithValue } from "./crateGraphPath";
-import { colors } from "./Graph";
+import { colors } from "../colors";
 
 interface HourlyLegendProps {
 	points: PointWithValue[];
@@ -48,8 +48,8 @@ export const HourlyLegend = ({
 				const isMidnight = pointHours === 0;
 				const isQuater = pointHours % 6 === 0;
 				const isNow =
-					pointDate.getHours() === now.getHours() &&
-					pointDate.getDate() === now.getDate();
+					pointDate.getUTCHours() === now.getUTCHours() &&
+					pointDate.getUTCDate() === now.getUTCDate();
 
 				let hourText = null;
 				let extraText = null;

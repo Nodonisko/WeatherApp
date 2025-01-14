@@ -12,12 +12,17 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useState } from "react";
 // import { run as benchmarkClosestColumn } from "./benchmarks/benchmarkClosestColumn";
 // import { run as benchmarkRound } from "./benchmarks/benchmarkRound";
+// import { run as benchmarkGraphPath } from "./benchmarks/benchmarkGraphPath";
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
 // setTimeout(() => {
 // 	// benchmarkClosestColumn();
 // 	benchmarkRound();
+// }, 5000);
+
+// setTimeout(() => {
+// 	benchmarkGraphPath();
 // }, 5000);
 
 export default function App() {

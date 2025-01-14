@@ -95,7 +95,7 @@ type GraphPathConfig = {
 	cloudLayerHeight?: number;
 };
 
-type WindArrow = {
+export type WindArrow = {
 	point: SkPoint;
 	direction: number;
 };
@@ -257,8 +257,6 @@ export function createGraphPathBase({
 	const windSpeedHeight = drawingHeight * 0.5;
 	const windSpeedYStart =
 		height - paddingBottom - windSpeedHeight - WIND_PADDING_BOTTOM;
-	console.log("windSpeedYStart", windSpeedYStart);
-	console.log("windSpeedHeight", windSpeedHeight);
 	let hasAnyNegativeValue = false;
 
 	const cloudLowPoints = [];
@@ -291,9 +289,12 @@ export function createGraphPathBase({
 	const windDirections: number[] = [];
 
 	for (let index = 0; index < graphData.length; index++) {
-		const { value, date, percipitation, ...rest } = graphData[index]!;
+		const { value, date, percipitation, percipitationSnow, ...rest } =
+			graphData[index]!;
 		if (value < 0) hasAnyNegativeValue = true;
 		if (percipitation > maxPrecipitation) maxPrecipitation = percipitation;
+		if (percipitationSnow > maxPrecipitation)
+			maxPrecipitation = percipitationSnow;
 		const prev = graphData[index - 1]?.value;
 		const next = graphData[index + 1]?.value;
 
@@ -322,6 +323,7 @@ export function createGraphPathBase({
 			value,
 			date: date.getTime(),
 			percipitation,
+			percipitationSnow,
 			isTrendChanging,
 		});
 		cloudLowPoints.push({
@@ -369,10 +371,19 @@ export function createGraphPathBase({
 	gradientPath.lineTo(points[points.length - 1]!.x, height - paddingBottom);
 	gradientPath.lineTo(0 + horizontalPadding, height - paddingBottom);
 
-	const windSpeedPath = curveLines(windSpeedPoints, 0.3, "simple");
+	const windSpeedPath = curveLines(windSpeedPoints, 0.3, "bezier");
 
 	// Distribute arrows along the wind speed path
 	const windArrows = distributeArrowsAlongPath(windSpeedPoints, windDirections);
+
+	const windSpeedClipPath = Skia.Path.Make();
+	windArrows.forEach((arrow, index) => {
+		if (index % 3 === 0 || index % 3 === 1) return;
+		windSpeedClipPath.moveTo(arrow.point.x, arrow.point.y);
+		windSpeedClipPath.addCircle(arrow.point.x, arrow.point.y, 8);
+	});
+
+	windSpeedClipPath.close();
 
 	return {
 		path,
@@ -386,5 +397,6 @@ export function createGraphPathBase({
 		windSpeedPath,
 		windSpeedPoints,
 		windArrows,
+		windSpeedClipPath,
 	};
 }

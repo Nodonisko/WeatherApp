@@ -45,6 +45,13 @@ target 'WeatherApp' do
   )
 
   post_install do |installer|
+# @generated begin ios-deployment-target - expo prebuild (DO NOT MODIFY) sync-f0e5d99fa4be8a383671520d420c0cc422b66442
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      end
+    end
+# @generated end ios-deployment-target
     react_native_post_install(
       installer,
       config[:reactNativePath],

@@ -46,6 +46,8 @@ import { Platform, StyleSheet } from "react-native";
 import { HourlyLegend } from "./HourlyLegend";
 import { roundTo1Decimals } from "./mathHelpers";
 import { CloudLayer } from "./CloudLayer";
+import { UnistylesRuntime } from "react-native-unistyles";
+
 // const graphPoints: GraphPoint[] = new Array(100).fill(0).map((_, index) => {
 // 	const v = Math.random() * 100;
 // 	const value = v > 50 ? v : v * -1;
@@ -106,10 +108,10 @@ export const colors = {
 
 const pathStrokeWidth = 1;
 
-const LEGEND_HEIGHT = 36;
+const LEGEND_HEIGHT = 36 + UnistylesRuntime.insets.bottom;
 const CLOUD_HEIGHT = 100;
 
-const PADDING_TOP = CLOUD_HEIGHT;
+const PADDING_TOP = CLOUD_HEIGHT + 80;
 const PADDING_BOTTOM = LEGEND_HEIGHT;
 
 const olomoucDate = new Date(olomouc.forecastTimeIso);
@@ -131,6 +133,23 @@ const graphPoints: GraphPoint[] = olomouc.parameterValues.TEMPERATURE.map(
 		date: new Date(olomoucDate.getTime() + index * 1000 * 60 * 60),
 	}),
 );
+
+const WIND_ARROW_HEIGHT = 10;
+const WIND_ARROW_WIDTH = 7;
+
+const drawWindArrow = () => {
+	const path = Skia.Path.Make();
+
+	// Create the SVG path
+	path.moveTo(WIND_ARROW_WIDTH / 2, 0);
+	path.lineTo(0, WIND_ARROW_HEIGHT);
+	path.lineTo(WIND_ARROW_WIDTH / 2, WIND_ARROW_HEIGHT * 0.65);
+	path.lineTo(WIND_ARROW_WIDTH, WIND_ARROW_HEIGHT);
+	path.close();
+
+	return path;
+};
+const windArrowPath = drawWindArrow();
 
 const getPrecipationScale = (maxPrecipitation: number) => {
 	if (maxPrecipitation <= 1) return 60;
@@ -170,43 +189,6 @@ const fontCurrent = matchFont({
 	fontFamily,
 	fontSize: 18,
 });
-
-// Add this helper function to create an arrow path using the SVG
-const createArrowPath = (
-	x: number,
-	y: number,
-	direction: number,
-	size: number = 6,
-) => {
-	const path = Skia.Path.Make();
-
-	// Original SVG viewBox dimensions (approximated from path values)
-	const originalWidth = 10000;
-	const originalHeight = 6000;
-	const originalCenterX = originalWidth / 2;
-	const originalCenterY = originalHeight / 2;
-
-	// Scale factor to achieve desired size
-	const scale = size / originalWidth;
-
-	// Create the SVG path
-	path.moveTo(0, 0);
-	path.addPath(
-		Skia.Path.MakeFromSVGString(
-			"M9280 5934 c-106 -21 -223 -80 -293 -150 -99 -97 -148 -196 -168 -336 -10 -72 -9 -97 5 -164 22 -108 75 -212 144 -282 33 -33 391 -297 851 -627 l794 -570 -5084 -5 c-4763 -5 -5087 -6 -5132 -22 -146 -52 -265 -152 -330 -275 -114 -217 -77 -472 93 -644 70 -71 126 -108 217 -142 l58 -22 5078 -5 5078 -5 -752 -615 c-414 -338 -776 -638 -804 -667 -29 -29 -68 -84 -89 -125 -112 -224 -73 -470 105 -649 104 -105 233 -159 382 -159 99 0 186 22 270 68 70 39 2847 2303 2942 2399 160 162 199 422 93 633 -46 94 -119 163 -324 311 -1086 782 -2701 1940 -2747 1970 -83 54 -166 80 -272 84 -49 2 -101 1 -115 -1z",
-		)!,
-	);
-
-	// Transform the path: scale, center, rotate, and position
-	const matrix = Skia.Matrix();
-	matrix.translate(x, y); // Move to target position
-	matrix.rotate(direction - 180, 0, 0); // Rotate (subtract 180 because SVG points right)
-	matrix.scale(scale, scale); // Scale to desired size
-	matrix.translate(-originalCenterX, -originalCenterY); // Center the arrow
-
-	path.transform(matrix);
-	return path;
-};
 
 export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 	const graphHeight = height - LEGEND_HEIGHT;
@@ -455,7 +437,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					/>
 				))}
 
-				<Text
+				{/* <Text
 					color="black"
 					x={50}
 					y={50}
@@ -468,7 +450,7 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					y={70}
 					font={fontCurrent}
 					text={currentDate}
-				/>
+				/> */}
 				{/* <Rect x={0} y={0} width={width} height={graphHeight}>
 					<TwoPointConicalGradient
 						start={vec(128, 200)}
@@ -527,17 +509,34 @@ export const Graph: React.FC<GraphProps> = ({ width = 800, height = 600 }) => {
 					<DashPathEffect intervals={[4, 4]} />
 				</Line>
 
-				<Group clip={graphPath.windSpeedClipPath} style="fill">
+				<Group>
 					<Path
 						path={graphPath.windSpeedPath}
-						strokeWidth={5}
+						strokeWidth={1}
 						style="stroke"
 						strokeJoin="round"
 						strokeCap="round"
-						color="rgba(255,0,0,0.5)"
-					></Path>
+						color="rgba(100,100,100,0.3)"
+					/>
+					{graphPath.windArrows.map((arrow, index) => (
+						<Group
+							key={`wind-arrow-${index}`}
+							transform={[
+								{ translateX: arrow.point.x },
+								{ translateY: arrow.point.y },
+								{ rotate: arrow.direction },
+								{ translateX: -WIND_ARROW_WIDTH / 2 },
+								{ translateY: -WIND_ARROW_HEIGHT / 2 },
+							]}
+						>
+							<Path
+								path={windArrowPath}
+								color="rgba(255,50,50,1)"
+								style="fill"
+							/>
+						</Group>
+					))}
 				</Group>
-				<Path path={graphPath.windSpeedClipPath} color="blue" style="fill" />
 			</Canvas>
 		</GestureDetector>
 	);
